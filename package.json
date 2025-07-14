@@ -1,0 +1,57 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "ms-todo-ext",
+  "title": "Microsoft To Do",
+  "description": "Create and view tasks in Microsoft To Do",
+  "icon": "icon.png",
+  "author": "dfs",
+  "categories": [
+    "Productivity"
+  ],
+  "license": "MIT",
+  "platforms": [
+    "Windows"
+  ],
+  "commands": [
+    {
+      "name": "list-todos",
+      "title": "List To-Dos",
+      "description": "View your tasks from Microsoft To Do",
+      "mode": "view"
+    },
+    {
+      "name": "create-todo",
+      "title": "Create To-Do",
+      "description": "Create a new task in Microsoft To Do",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "token",
+      "title": "Microsoft Graph API Token",
+      "description": "Your personal access token for the Microsoft Graph API",
+      "type": "password",
+      "required": true
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.40.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.6",
+    "@types/node": "18.18.4",
+    "@types/react": "19.0.10",
+    "eslint": "^8.51.0",
+    "prettier": "^3.0.3",
+    "typescript": "^5.2.2"
+  },
+  "scripts": {
+    "build": "ray build -e dist",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "publish": "ray publish"
+  }
+}
