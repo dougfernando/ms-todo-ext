@@ -1,5 +1,14 @@
 // src/create-todo.tsx
-import { ActionPanel, Form, Action, showToast, Toast, getPreferenceValues, closeMainWindow } from "@raycast/api";
+import {
+    ActionPanel,
+    Form,
+    Action,
+    showToast,
+    Toast,
+    getPreferenceValues,
+    closeMainWindow,
+    useNavigation, // Re-import useNavigation
+} from "@raycast/api";
 import { useEffect, useState } from "react";
 import fetch from "node-fetch";
 
@@ -81,6 +90,7 @@ async function createTodo(task: TaskForm): Promise<TaskResponse> {
 }
 
 export default function CreateTodoCommand() {
+    const { popToRoot } = useNavigation(); // NEW: Get popToRoot from the navigation hook
     const [taskLists, setTaskLists] = useState<TaskList[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -94,19 +104,21 @@ export default function CreateTodoCommand() {
         fetchData();
     }, []);
 
-    // UPDATED: Re-introduced setTimeout to ensure the window closes correctly
+    // UPDATED: Now pops to root before closing the window.
     async function handleSubmit(values: TaskForm) {
         const toast = await showToast({ style: Toast.Style.Animated, title: "Creating task..." });
         try {
             await createTodo(values);
+
             toast.style = Toast.Style.Success;
             toast.title = "Task Created";
-            toast.message = "Window will close shortly...";
+            await showToast(toast); // Ensure the toast is shown before we try to close
 
-            // Add a 1.5-second delay before closing to ensure the toast is seen and to avoid timing issues.
-            setTimeout(() => {
-                closeMainWindow({ clearRootSearch: true });
-            }, 1500);
+            // Pop to the root of the extension's navigation stack first.
+            popToRoot();
+
+            // Then, close the main window.
+            await closeMainWindow({ clearRootSearch: true });
 
         } catch (error) {
             toast.style = Toast.Style.Failure;
