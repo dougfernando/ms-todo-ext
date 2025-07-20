@@ -24,20 +24,34 @@
       "title": "Create To-Do",
       "description": "Create a new task in Microsoft To Do",
       "mode": "view"
+    },
+    {
+      "name": "list-tasks-by-list",
+      "title": "List Tasks by List",
+      "description": "List tasks by a specific list",
+      "mode": "view"
     }
   ],
   "preferences": [
     {
-      "name": "token",
-      "title": "Microsoft Graph API Token",
-      "description": "Your personal access token for the Microsoft Graph API",
-      "type": "password",
+      "name": "clientId",
+      "title": "Client ID",
+      "description": "The Client ID of your application registration in Azure.",
+      "type": "textfield",
       "required": true
     }
   ],
+  "oauth": [
+    "microsoft"
+  ],
+  "scopes": [
+    "Tasks.ReadWrite",
+    "offline_access"
+  ],
   "dependencies": {
-    "@raycast/api": "^1.40.0",
-    "node-fetch": "^3.3.2"
+    "@raycast/api": "^1.101.1",
+    "node-fetch": "^3.3.2",
+    "p-limit": "^6.2.0"
   },
   "devDependencies": {
     "@raycast/eslint-config": "^1.0.6",

@@ -5,18 +5,14 @@ import {
     Action,
     showToast,
     Toast,
-    getPreferenceValues,
     closeMainWindow,
-    useNavigation, // Re-import useNavigation
+    useNavigation,
 } from "@raycast/api";
 import { useEffect, useState } from "react";
 import fetch from "node-fetch";
+import { authorize, getAccessToken } from "./auth";
 
 // Interfaces
-interface Preferences {
-    token: string;
-}
-
 interface TaskList {
     id: string;
     displayName: string;
@@ -37,7 +33,7 @@ interface TaskResponse {
 
 // API Requests
 async function fetchTaskLists(): Promise<TaskList[]> {
-    const { token } = getPreferenceValues<Preferences>();
+    const token = await getAccessToken();
     try {
         const response = await fetch("https://graph.microsoft.com/v1.0/me/todo/lists", {
             headers: { Authorization: `Bearer ${token}` },
@@ -57,7 +53,7 @@ async function fetchTaskLists(): Promise<TaskList[]> {
 }
 
 async function createTodo(task: TaskForm): Promise<TaskResponse> {
-    const { token } = getPreferenceValues<Preferences>();
+    const token = await getAccessToken();
     const body: any = {
         title: task.title,
         body: { content: task.content, contentType: "text" },
@@ -86,16 +82,16 @@ async function createTodo(task: TaskForm): Promise<TaskResponse> {
         throw new Error(errorData.error?.message || "Failed to create task");
     }
 
-    return await response.json();
+    return (await response.json()) as TaskResponse;
 }
 
 export default function CreateTodoCommand() {
-    const { popToRoot } = useNavigation(); // NEW: Get popToRoot from the navigation hook
     const [taskLists, setTaskLists] = useState<TaskList[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         async function fetchData() {
+            await authorize();
             setIsLoading(true);
             const taskListsResponse = await fetchTaskLists();
             setTaskLists(taskListsResponse);
@@ -113,9 +109,6 @@ export default function CreateTodoCommand() {
             toast.style = Toast.Style.Success;
             toast.title = "Task Created";
             await showToast(toast); // Ensure the toast is shown before we try to close
-
-            // Pop to the root of the extension's navigation stack first.
-            popToRoot();
 
             // Then, close the main window.
             await closeMainWindow({ clearRootSearch: true });

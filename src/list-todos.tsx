@@ -1,38 +1,37 @@
 // src/list-todos.tsx
-import { ActionPanel, Action, List, showToast, Toast, getPreferenceValues, Icon } from "@raycast/api";
+import { ActionPanel, Action, List, showToast, Toast, Icon } from "@raycast/api";
 import { useEffect, useState } from "react";
-import fetch from "node-fetch";
+import fetch, { Response } from "node-fetch"; // Import Response type
+import pLimit from "p-limit";
+import { authorize, getAccessToken } from "./auth";
 
 // Interfaces
-interface Preferences {
-    token: string;
-}
-
 interface TaskList {
     id: string;
     displayName: string;
 }
-
 interface Todo {
     id: string;
     title: string;
     status: string;
 }
-
 interface GroupedTodos {
     list: TaskList;
     todos: Todo[];
 }
 
+// NEW: A simple helper function to pause execution for a given number of milliseconds.
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // API Call to fetch To-Do lists
 async function fetchTaskLists(): Promise<TaskList[]> {
-    const { token } = getPreferenceValues<Preferences>();
+    const token = await getAccessToken();
     try {
         const response = await fetch("https://graph.microsoft.com/v1.0/me/todo/lists", {
             headers: { Authorization: `Bearer ${token}` },
         });
         if (!response.ok) {
-            const data = await response.json();
+            const data = (await response.json()) as { error?: { message: string } };
             throw new Error(data.error?.message || "Failed to fetch task lists");
         }
         const data: any = await response.json();
@@ -42,30 +41,56 @@ async function fetchTaskLists(): Promise<TaskList[]> {
     }
 }
 
-// API Call to fetch To-Dos for a specific list
+// UPDATED: fetchTodosForList now includes a retry mechanism for throttling errors
 async function fetchTodosForList(listId: string): Promise<Todo[]> {
-    const { token } = getPreferenceValues<Preferences>();
-    try {
-        const response = await fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks?$filter=status ne 'completed'`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-            const data = await response.json();
-            // We log the error here but return an empty array to not block the entire process if one list fails
-            console.error(`Throttling or error on list ${listId}: ${data.error?.message}`);
-            return [];
+    const token = await getAccessToken();
+    const maxRetries = 3;
+    let attempt = 0;
+
+    while (attempt < maxRetries) {
+        try {
+            const response: Response = await fetch(
+                `https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks?$filter=status ne 'completed'`,
+                {
+                    headers: { Authorization: `Bearer ${token}` },
+                },
+            );
+
+            // If throttled (HTTP 429), wait and retry
+            if (response.status === 429) {
+                // The API often provides a 'Retry-After' header with the number of seconds to wait.
+                const retryAfterSeconds = parseInt(response.headers.get("Retry-After") || "5", 10);
+                console.warn(`Throttled on list ${listId}. Retrying after ${retryAfterSeconds} seconds...`);
+                await sleep(retryAfterSeconds * 1000);
+                attempt++;
+                continue; // Try the request again
+            }
+
+            if (!response.ok) {
+                const data = (await response.json()) as { error?: { message: string } };
+                throw new Error(data.error?.message || `HTTP error ${response.status}`);
+            }
+
+            const data: any = await response.json();
+            return data.value; // Success! Exit the loop.
+        } catch (error) {
+            console.error(`Failed to fetch todos for list ${listId} on attempt ${attempt + 1}:`, error);
+            attempt++;
+            if (attempt >= maxRetries) {
+                // If all retries fail, give up on this list and return empty.
+                return [];
+            }
+            // Wait for an increasing amount of time before the next retry
+            await sleep(2000 * attempt);
         }
-        const data: any = await response.json();
-        return data.value;
-    } catch (error) {
-        console.error(`Failed to fetch todos for list ${listId}:`, error);
-        return [];
     }
+
+    return []; // Return empty if all retries fail
 }
 
 // API call to mark a task as complete
 async function markTaskAsCompleteAPI(listId: string, taskId: string) {
-    const { token } = getPreferenceValues<Preferences>();
+    const token = await getAccessToken();
     return fetch(`https://graph.microsoft.com/v1.0/me/todo/lists/${listId}/tasks/${taskId}`, {
         method: "PATCH",
         headers: {
@@ -80,23 +105,22 @@ export default function ListTodosCommand() {
     const [groupedTodos, setGroupedTodos] = useState<GroupedTodos[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
-    // THIS IS THE CORRECTED FUNCTION
     async function loadTodos() {
+        await authorize();
         setIsLoading(true);
         const toast = await showToast({ style: Toast.Style.Animated, title: "Loading tasks..." });
         try {
+            // Lowering the concurrency limit to be safer
+            const limit = pLimit(3);
+
             const taskLists = await fetchTaskLists();
-            const allGroupedTodos: GroupedTodos[] = [];
 
-            // We use a sequential for...of loop here to prevent sending too many requests at once.
-            // This is the fix for the "throttled" error.
-            for (const list of taskLists) {
-                const todos = await fetchTodosForList(list.id);
-                if (todos.length > 0) {
-                    allGroupedTodos.push({ list, todos });
-                }
-            }
+            const promises = taskLists.map((list) =>
+                limit(() => fetchTodosForList(list.id)).then((todos) => ({ list, todos })),
+            );
 
+            const results = await Promise.all(promises);
+            const allGroupedTodos = results.filter((group) => group.todos.length > 0);
             setGroupedTodos(allGroupedTodos);
 
             toast.style = Toast.Style.Success;
@@ -116,13 +140,14 @@ export default function ListTodosCommand() {
 
     async function handleMarkAsComplete(listId: string, taskId: string) {
         const originalTodos = [...groupedTodos];
-
-        const newGroupedTodos = groupedTodos.map(group => {
-            if (group.list.id === listId) {
-                return { ...group, todos: group.todos.filter(t => t.id !== taskId) };
-            }
-            return group;
-        }).filter(group => group.todos.length > 0);
+        const newGroupedTodos = groupedTodos
+            .map((group) => {
+                if (group.list.id === listId) {
+                    return { ...group, todos: group.todos.filter((t) => t.id !== taskId) };
+                }
+                return group;
+            })
+            .filter((group) => group.todos.length > 0);
         setGroupedTodos(newGroupedTodos);
 
         try {
