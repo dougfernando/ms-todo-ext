@@ -32,13 +32,15 @@ export async function authorize(): Promise<void> {
     clientId,
     scope,
   });
-  console.log("Your redirect URI is:", authRequest.redirectURI);
+  console.log("Auth Request before authorize:", JSON.stringify(authRequest));
   const { authorizationCode } = await oauthClient.authorize(authRequest);
+  console.log("Auth Request after authorize:", JSON.stringify(authRequest));
   const newTokens = await fetchTokens(authRequest, authorizationCode);
   await oauthClient.setTokens(newTokens);
 }
 
 async function fetchTokens(authRequest: OAuth.AuthorizationRequest, authCode: string): Promise<OAuth.TokenResponse> {
+  console.log("Auth Request in fetchTokens:", JSON.stringify(authRequest));
   const { clientId } = getPreferenceValues<Preferences>();
   const response = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
     method: "POST",
