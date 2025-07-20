@@ -2,7 +2,6 @@
 
 to install it:
 - install Node JS (winget install -e --id OpenJS.NodeJS)
-- install Everything CLI (winget install --id=voidtools.Everything.Cli -e)
 - clone the repository
 - run: “npm ci” then “npm run dev”, which adds it to Raycast
 
