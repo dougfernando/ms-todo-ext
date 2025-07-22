@@ -5,6 +5,5 @@ to install it:
 - clone the repository
 - run: “npm ci” then “npm run dev”, which adds it to Raycast
 
-It's necessary to add a token in preference for authenticating on https://developer.microsoft.com/en-us/graph/graph-explorer and access to-do through APIs
+It's necessary to add a client ID on Azure Portal for authenticating and accessing the APIs
 
-> Inspired by: https://github.com/nirnejak/raycast-microsoft-to-do
