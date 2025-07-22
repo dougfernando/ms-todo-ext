@@ -48,6 +48,7 @@ async function fetchTaskLists(): Promise<TaskList[]> {
     } catch (error) {
         const message = error instanceof Error ? error.message : "An unknown error occurred";
         showToast(Toast.Style.Failure, "Error", message);
+        console.log(error);
         return [];
     }
 }
@@ -79,6 +80,7 @@ async function createTodo(task: TaskForm): Promise<TaskResponse> {
 
     if (!response.ok) {
         const errorData: any = await response.json();
+        console.log(errorData);
         throw new Error(errorData.error?.message || "Failed to create task");
     }
 
@@ -108,7 +110,6 @@ export default function CreateTodoCommand() {
 
             toast.style = Toast.Style.Success;
             toast.title = "Task Created";
-            await showToast(toast); // Ensure the toast is shown before we try to close
 
             // Then, close the main window.
             await closeMainWindow({ clearRootSearch: true });
@@ -117,6 +118,7 @@ export default function CreateTodoCommand() {
             toast.style = Toast.Style.Failure;
             toast.title = "Error";
             toast.message = error instanceof Error ? error.message : "Could not create task";
+            console.log(error);
         }
     }
 
@@ -138,7 +140,7 @@ export default function CreateTodoCommand() {
                 ))}
             </Form.Dropdown>
             <Form.Separator />
-            <Form.DatePicker id="dueDateTime" title="Due Date" />
+            <Form.DatePicker id="dueDateTime" title="Due Date" type={Form.DatePicker.Type.Date} />
             <Form.Dropdown id="importance" title="Importance" defaultValue="normal">
                 <Form.Dropdown.Item value={"low"} title={"Low"} />
                 <Form.Dropdown.Item value={"normal"} title={"Normal"} />
