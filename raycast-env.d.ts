@@ -9,7 +9,9 @@
 
 type ExtensionPreferences = {
   /** Client ID - The Client ID of your application registration in Azure. */
-  "clientId": string
+  "clientId": string,
+  /** Default List for Quick Add - ID of the default list for Quick Add (optional - will auto-select if empty) */
+  "defaultList"?: string
 }
 
 /** Preferences accessible in all the extension's commands */
@@ -22,6 +24,8 @@ declare namespace Preferences {
   export type CreateTodo = ExtensionPreferences & {}
   /** Preferences accessible in the `list-tasks-by-list` command */
   export type ListTasksByList = ExtensionPreferences & {}
+  /** Preferences accessible in the `quick-add-todo` command */
+  export type QuickAddTodo = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -31,5 +35,7 @@ declare namespace Arguments {
   export type CreateTodo = {}
   /** Arguments passed to the `list-tasks-by-list` command */
   export type ListTasksByList = {}
+  /** Arguments passed to the `quick-add-todo` command */
+  export type QuickAddTodo = {}
 }
 

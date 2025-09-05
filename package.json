@@ -30,6 +30,12 @@
       "title": "List Tasks by List",
       "description": "List tasks by a specific list",
       "mode": "view"
+    },
+    {
+      "name": "quick-add-todo",
+      "title": "Quick Add Task",
+      "description": "Quickly create a new task with minimal input",
+      "mode": "view"
     }
   ],
   "preferences": [
@@ -39,6 +45,13 @@
       "description": "The Client ID of your application registration in Azure.",
       "type": "textfield",
       "required": true
+    },
+    {
+      "name": "defaultList",
+      "title": "Default List for Quick Add",
+      "description": "ID of the default list for Quick Add (optional - will auto-select if empty)",
+      "type": "textfield",
+      "required": false
     }
   ],
   "oauth": [

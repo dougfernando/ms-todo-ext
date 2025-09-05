@@ -19,6 +19,11 @@ interface Todo {
         dateTime: string;
         timeZone: string;
     };
+    body?: {
+        content: string;
+        contentType: string;
+    };
+    hasAttachments?: boolean;
 }
 interface GroupedTodos {
     list: TaskList;
@@ -29,6 +34,58 @@ type FilterType = 'all' | 'with-due-date' | 'important';
 
 // NEW: A simple helper function to pause execution for a given number of milliseconds.
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Helper function to get task icon based on importance and due date status
+function getTaskIcon(todo: Todo): Icon {
+    const isOverdue = isTaskOverdue(todo.dueDateTime);
+    
+    if (isOverdue) {
+        return Icon.ExclamationMark; // Red warning for overdue
+    }
+    
+    switch (todo.importance) {
+        case 'high':
+            return Icon.Star; // Star for high priority
+        case 'low':
+            return Icon.Minus; // Minus for low priority
+        default:
+            return Icon.Circle; // Circle for normal priority
+    }
+}
+
+// Helper function to get task color based on status
+function getTaskColor(todo: Todo): string | undefined {
+    const isOverdue = isTaskOverdue(todo.dueDateTime);
+    
+    if (isOverdue) {
+        return '#FF4444'; // Red for overdue
+    }
+    
+    switch (todo.importance) {
+        case 'high':
+            return '#FF9500'; // Orange for high priority
+        case 'low':
+            return '#8E8E93'; // Gray for low priority
+        default:
+            return undefined; // Default color for normal priority
+    }
+}
+
+// Helper function to check if task is overdue
+function isTaskOverdue(dueDateTime?: { dateTime: string; timeZone: string }): boolean {
+    if (!dueDateTime) return false;
+    
+    try {
+        const dueDate = new Date(dueDateTime.dateTime);
+        const today = new Date();
+        const dueDateOnly = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+        const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        
+        return dueDateOnly.getTime() < todayOnly.getTime();
+    } catch (error) {
+        return false;
+    }
+}
 
 // Helper function to format due date
 function formatDueDate(dueDateTime?: { dateTime: string; timeZone: string }): string | undefined {
@@ -249,34 +306,66 @@ export default function ListTodosCommand() {
                     icon={Icon.Checkmark} 
                 />
             ) : (
-                filteredGroupedTodos.map((group) => (
-                    <List.Section key={group.list.id} title={group.list.displayName} subtitle={`${group.todos.length}`}>
-                        {group.todos.map((todo) => (
-                            <List.Item
-                                key={todo.id}
-                                title={todo.title}
-                                icon={Icon.Circle}
-                                accessories={formatDueDate(todo.dueDateTime) ? [{ text: formatDueDate(todo.dueDateTime) }] : undefined}
-                                actions={
-                                    <ActionPanel>
-                                        <Action
-                                            title="Mark as Complete"
-                                            icon={Icon.CheckCircle}
-                                            onAction={() => handleMarkAsComplete(group.list.id, todo.id)}
-                                        />
-                                        <Action.OpenInBrowser title="Open in To Do" url="https://to-do.live.com" />
-                                        <Action
-                                            title="Reload"
-                                            icon={Icon.Repeat}
-                                            onAction={loadTodos}
-                                            shortcut={{ modifiers: ["cmd"], key: "r" }}
-                                        />
-                                    </ActionPanel>
-                                }
-                            />
-                        ))}
-                    </List.Section>
-                ))
+                filteredGroupedTodos.map((group) => {
+                    return (
+                        <List.Section key={group.list.id} title={group.list.displayName} subtitle={`${group.todos.length}`}>
+                        {group.todos.map((todo) => {
+                            const accessories: List.Item.Accessory[] = [];
+                            
+                            // Add due date if exists
+                            const dueDateText = formatDueDate(todo.dueDateTime);
+                            if (dueDateText) {
+                                const isOverdue = isTaskOverdue(todo.dueDateTime);
+                                accessories.push({
+                                    text: dueDateText,
+                                    tooltip: isOverdue ? 'Overdue!' : `Due ${dueDateText}`,
+                                });
+                            }
+                            
+                            // Add notes indicator if task has notes
+                            if (todo.body?.content && todo.body.content.trim()) {
+                                accessories.push({
+                                    icon: Icon.Text,
+                                    tooltip: `Notes: ${todo.body.content.substring(0, 100)}${todo.body.content.length > 100 ? '...' : ''}`
+                                });
+                            }
+                            
+                            // Add attachment indicator if task has attachments
+                            if (todo.hasAttachments) {
+                                accessories.push({
+                                    icon: Icon.Paperclip,
+                                    tooltip: 'Has attachments'
+                                });
+                            }
+                            
+                            return (
+                                <List.Item
+                                    key={todo.id}
+                                    title={todo.title}
+                                    icon={{ source: getTaskIcon(todo), tintColor: getTaskColor(todo) }}
+                                    accessories={accessories.length > 0 ? accessories : undefined}
+                                    actions={
+                                        <ActionPanel>
+                                            <Action
+                                                title="Mark as Complete"
+                                                icon={Icon.CheckCircle}
+                                                onAction={() => handleMarkAsComplete(group.list.id, todo.id)}
+                                            />
+                                            <Action.OpenInBrowser title="Open in To Do" url="https://to-do.live.com" />
+                                            <Action
+                                                title="Reload"
+                                                icon={Icon.Repeat}
+                                                onAction={loadTodos}
+                                                shortcut={{ modifiers: ["cmd"], key: "r" }}
+                                            />
+                                        </ActionPanel>
+                                    }
+                                />
+                            );
+                        })}
+                        </List.Section>
+                    );
+                })
             )}
         </List>
     );
