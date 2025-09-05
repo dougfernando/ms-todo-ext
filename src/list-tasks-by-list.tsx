@@ -3,6 +3,37 @@ import { useEffect, useState } from "react";
 import fetch from "node-fetch";
 import { authorize, getAccessToken } from "./auth";
 
+// Helper function to format due date
+function formatDueDate(dueDateTime?: { dateTime: string; timeZone: string }): string | undefined {
+  if (!dueDateTime) return undefined;
+  
+  try {
+    const date = new Date(dueDateTime.dateTime);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    
+    // Reset time to compare only dates
+    const dueDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const tomorrowOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+    
+    if (dueDateOnly.getTime() === todayOnly.getTime()) {
+      return "Today";
+    } else if (dueDateOnly.getTime() === tomorrowOnly.getTime()) {
+      return "Tomorrow";
+    } else {
+      return date.toLocaleDateString(undefined, { 
+        month: 'short', 
+        day: 'numeric',
+        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+      });
+    }
+  } catch (error) {
+    return undefined;
+  }
+}
+
 // Interfaces
 interface TaskList {
   id: string;
@@ -13,6 +44,10 @@ interface Todo {
   id: string;
   title: string;
   status: string;
+  dueDateTime?: {
+    dateTime: string;
+    timeZone: string;
+  };
 }
 
 // API Call to fetch To-Do lists
@@ -153,6 +188,7 @@ export default function ListTasksByListCommand() {
                 key={todo.id}
                 title={todo.title}
                 icon={Icon.Circle}
+                accessories={formatDueDate(todo.dueDateTime) ? [{ text: formatDueDate(todo.dueDateTime) }] : undefined}
                 actions={
                   <ActionPanel>
                     <Action title="Mark as Complete" icon={Icon.CheckCircle} onAction={() => handleMarkAsComplete(todo.id)} />
