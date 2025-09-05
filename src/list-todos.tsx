@@ -14,6 +14,7 @@ interface Todo {
     id: string;
     title: string;
     status: string;
+    importance: 'low' | 'normal' | 'high';
     dueDateTime?: {
         dateTime: string;
         timeZone: string;
@@ -23,6 +24,8 @@ interface GroupedTodos {
     list: TaskList;
     todos: Todo[];
 }
+
+type FilterType = 'all' | 'with-due-date' | 'important';
 
 // NEW: A simple helper function to pause execution for a given number of milliseconds.
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -136,9 +139,23 @@ async function markTaskAsCompleteAPI(listId: string, taskId: string) {
     });
 }
 
+// Filter function to apply filters to todos
+function applyFilters(todos: Todo[], filterType: FilterType): Todo[] {
+    switch (filterType) {
+        case 'with-due-date':
+            return todos.filter(todo => todo.dueDateTime);
+        case 'important':
+            return todos.filter(todo => todo.importance === 'high');
+        case 'all':
+        default:
+            return todos;
+    }
+}
+
 export default function ListTodosCommand() {
     const [groupedTodos, setGroupedTodos] = useState<GroupedTodos[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
 
     async function loadTodos() {
         await authorize();
@@ -201,12 +218,38 @@ export default function ListTodosCommand() {
         }
     }
 
+    // Apply current filter to all grouped todos
+    const filteredGroupedTodos = groupedTodos
+        .map(group => ({
+            ...group,
+            todos: applyFilters(group.todos, currentFilter)
+        }))
+        .filter(group => group.todos.length > 0);
+
     return (
-        <List isLoading={isLoading} searchBarPlaceholder="Filter your to-dos...">
-            {groupedTodos.length === 0 && !isLoading ? (
-                <List.EmptyView title="No To-Dos Found" description="You're all caught up!" icon={Icon.Checkmark} />
+        <List 
+            isLoading={isLoading} 
+            searchBarPlaceholder="Filter your to-dos..."
+            searchBarAccessory={
+                <List.Dropdown
+                    tooltip="Filter Tasks"
+                    value={currentFilter}
+                    onChange={(newFilter) => setCurrentFilter(newFilter as FilterType)}
+                >
+                    <List.Dropdown.Item title="All Tasks" value="all" icon={Icon.List} />
+                    <List.Dropdown.Item title="With Due Date" value="with-due-date" icon={Icon.Calendar} />
+                    <List.Dropdown.Item title="Important" value="important" icon={Icon.Important} />
+                </List.Dropdown>
+            }
+        >
+            {filteredGroupedTodos.length === 0 && !isLoading ? (
+                <List.EmptyView 
+                    title={currentFilter === 'all' ? "No To-Dos Found" : "No Matching Tasks"} 
+                    description={currentFilter === 'all' ? "You're all caught up!" : `No tasks match the "${currentFilter === 'with-due-date' ? 'With Due Date' : 'Important'}" filter`} 
+                    icon={Icon.Checkmark} 
+                />
             ) : (
-                groupedTodos.map((group) => (
+                filteredGroupedTodos.map((group) => (
                     <List.Section key={group.list.id} title={group.list.displayName} subtitle={`${group.todos.length}`}>
                         {group.todos.map((todo) => (
                             <List.Item

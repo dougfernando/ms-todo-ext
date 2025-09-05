@@ -34,6 +34,21 @@ function formatDueDate(dueDateTime?: { dateTime: string; timeZone: string }): st
   }
 }
 
+type FilterType = 'all' | 'with-due-date' | 'important';
+
+// Filter function to apply filters to todos
+function applyFilters(todos: Todo[], filterType: FilterType): Todo[] {
+  switch (filterType) {
+    case 'with-due-date':
+      return todos.filter(todo => todo.dueDateTime);
+    case 'important':
+      return todos.filter(todo => todo.importance === 'high');
+    case 'all':
+    default:
+      return todos;
+  }
+}
+
 // Interfaces
 interface TaskList {
   id: string;
@@ -44,6 +59,7 @@ interface Todo {
   id: string;
   title: string;
   status: string;
+  importance: 'low' | 'normal' | 'high';
   dueDateTime?: {
     dateTime: string;
     timeZone: string;
@@ -107,6 +123,7 @@ export default function ListTasksByListCommand() {
   const [selectedList, setSelectedList] = useState<TaskList | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentFilter, setCurrentFilter] = useState<FilterType>('all');
 
   async function loadTaskLists() {
     await authorize();
@@ -177,13 +194,34 @@ export default function ListTasksByListCommand() {
   }
 
   if (selectedList) {
+    const filteredTodos = applyFilters(todos, currentFilter);
+    
     return (
-      <List isLoading={isLoading} navigationTitle={selectedList.displayName} searchBarPlaceholder="Filter your to-dos...">
-        {todos.length === 0 && !isLoading ? (
-          <List.EmptyView title="No To-Dos Found" description="You're all caught up!" icon={Icon.Checkmark} />
+      <List 
+        isLoading={isLoading} 
+        navigationTitle={selectedList.displayName} 
+        searchBarPlaceholder="Filter your to-dos..."
+        searchBarAccessory={
+          <List.Dropdown
+            tooltip="Filter Tasks"
+            value={currentFilter}
+            onChange={(newFilter) => setCurrentFilter(newFilter as FilterType)}
+          >
+            <List.Dropdown.Item title="All Tasks" value="all" icon={Icon.List} />
+            <List.Dropdown.Item title="With Due Date" value="with-due-date" icon={Icon.Calendar} />
+            <List.Dropdown.Item title="Important" value="important" icon={Icon.Important} />
+          </List.Dropdown>
+        }
+      >
+        {filteredTodos.length === 0 && !isLoading ? (
+          <List.EmptyView 
+            title={currentFilter === 'all' ? "No To-Dos Found" : "No Matching Tasks"} 
+            description={currentFilter === 'all' ? "You're all caught up!" : `No tasks match the "${currentFilter === 'with-due-date' ? 'With Due Date' : 'Important'}" filter`} 
+            icon={Icon.Checkmark} 
+          />
         ) : (
           <List.Section title="Tasks">
-            {todos.map((todo) => (
+            {filteredTodos.map((todo) => (
               <List.Item
                 key={todo.id}
                 title={todo.title}
